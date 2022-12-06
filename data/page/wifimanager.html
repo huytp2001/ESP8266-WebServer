@@ -83,7 +83,6 @@
   
   <div id="content">
     <div class="form_container" id="wifi_form">
-        <form action="/" method="POST">
             <div class="field_container">
                 <label for="ssid"><b>SSID</b></label>
                 <input class="field" type="text" id="ssid" name="ssid" placeholder="Enter SSID" required>
@@ -94,18 +93,45 @@
             </div>
             <div class="field_container">
                 <label for="ip"><b>IP Address</b></label>
-                <input class="field" type="text" id="ip" name="ip" placeholder="Enter IP Address" value="192.168.1.88" required>
+                <input class="field" type="text" id="ip" name="ip" placeholder="Enter IP Address" required>
             </div>
             <div class="field_container">
                 <label for="gateway"><b>Gateway Address</b></label>
-                <input class="field" type="text" id="gateway" name="gateway" placeholder="Enter Gateway Address" value="192.168.1.1" required>
+                <input class="field" type="text" id="gateway" name="gateway" placeholder="Enter Gateway Address" required>
             </div>
             <div class="button_container">
                 <button class="field" id="submit_btn"><b>Submit</b></button>
             </div>
-        </form>
     </div>
 </div>
+    <script>
+        async function post_data(url, data) { 
+            let form = new FormData();
+            for (let i in data) {
+                form.append(i, data[i]);
+            }
+            const post = await fetch(`${url}`, {
+                method: "POST",
+                body: form
+            });
+            const post_res = await post.text();
+            return post_res;
+        }
 
+        document.getElementById("submit_btn").addEventListener("click", ()=>{
+            const ssid = document.getElementById("ssid").value;
+            const pass = document.getElementById("pass").value;
+            const ip = document.getElementById("ip").value;
+            const gateway = document.getElementById("gateway").value;
+            if (ssid == "" || pass == "" || ip == "" || gateway == "") {
+                alert("You must fill all your input");
+                return;
+            }
+            post_data("/", {ssid:`${ssid}`, pass:`${pass}`, ip:`${ip}`,gateway:`${gateway}`}).then((res)=>{
+                alert(res);
+            }) 
+        })
+
+    </script>
 </body>
 </html>

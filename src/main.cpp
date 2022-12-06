@@ -25,7 +25,7 @@ IPAddress localIP, localGateway, subnet(255, 255, 255, 0);
 bool restart = false;
 
 bool initWifi() {
-    if(ssid=="" || ip==""){
+    if(ssid=="" || pass=="" || ip =="" || gateway==""){
       return false;
     }
     WiFi.mode(WIFI_STA);
@@ -48,6 +48,8 @@ bool initWifi() {
         digitalWrite(WIFI_PIN, !(digitalRead(WIFI_PIN)));
         count++;    
     }
+    Serial.print("IP: ");
+    Serial.println(WiFi.localIP());
     return true;
 }
 String create_token(int len) {
@@ -86,7 +88,7 @@ bool check_token(String token) {
 void update_client() {
   for (int i = 0; i < MAX_CLIENT; i++) {
     if (client_timeout[i] >= 6) {
-      Serial.print("Remove client");
+      Serial.print("Remove client ");
       Serial.println(client_token[i]);
       client_token[i] = "/";
       client_timeout[i] = -1;
@@ -352,6 +354,8 @@ void resetWiFi(AsyncWebServerRequest *request) {
     if (isAutho && isCorrect) {
         writeFile(LittleFS, "/wifi_data/ssid.txt", "");
         writeFile(LittleFS, "/wifi_data/password.txt", "");
+        writeFile(LittleFS, "/wifi_data/ip.txt", "");
+        writeFile(LittleFS, "/wifi_data/gateway.txt", "");
         restart = true;
         request->send(200, "text/plain", "@");
     } else {
