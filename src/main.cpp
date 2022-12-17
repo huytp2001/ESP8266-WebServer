@@ -4,13 +4,12 @@
 
 #define MAX_CLIENT 16
 #define TOKEN_LENGTH 16
-#define LED 16
-#define FAN 5
+#define LAMP 5
 #define LOCK 4
 #define DHTPIN 0
 #define WIFI_PIN 2
 
-AsyncWebServer server(80); 
+AsyncWebServer server(80);
 AsyncWebSocket ws("/ws");
 DHT dht(DHTPIN, DHT22);
 String client_token[MAX_CLIENT];
@@ -20,13 +19,17 @@ unsigned long previousMillis2 = 0;
 const unsigned long interval1 = 5000;
 const unsigned long interval2 = 3000;
 float hum, tem, old_temp, old_hum;
+int old_light, light;
 String ssid, pass, ip, gateway, uname, password;
 IPAddress localIP, localGateway, subnet(255, 255, 255, 0);
 bool restart = false;
 
 bool initWifi() {
+    Serial.println("Try to connect to wifi...");
     if(ssid=="" || pass=="" || ip =="" || gateway==""){
-      return false;
+        Serial.println("Cannot found wifi data in flash memory");
+        Serial.println("Start wifi at AP mode");
+        return false;
     }
     WiFi.mode(WIFI_STA);
     WiFi.setAutoReconnect(true);
@@ -34,6 +37,8 @@ bool initWifi() {
     localGateway.fromString(gateway.c_str());
 
     if (!WiFi.config(localIP, localGateway, subnet)){
+        Serial.println("Failed to config wifi");
+        Serial.println("Start wifi at AP mode");
         return false;
     }
 
@@ -42,6 +47,8 @@ bool initWifi() {
     digitalWrite(WIFI_PIN, LOW);
     while(WiFi.status() != WL_CONNECTED) {
         if (count >= 40) {
+            Serial.println("Wifi connection timeout");
+            Serial.println("Start wifi at AP mode");
             return false;
         }
         delay(500);
@@ -98,27 +105,6 @@ void update_client() {
     }
   }
 }
-boolean isNumeric(String str) {
-    unsigned int stringLength = str.length();
-    if (stringLength == 0) {
-        return false;
-    }
-    boolean seenDecimal = false;
-    for(unsigned int i = 0; i < stringLength; ++i) {
-        if (isDigit(str.charAt(i))) {
-            continue;
-        }
-        if (str.charAt(i) == '.') {
-            if (seenDecimal) {
-                return false;
-            }
-            seenDecimal = true;
-            continue;
-        }
-        return false;
-    }
-    return true;
-}
 String readFile(fs::FS &fs, const char * path) {
     File file = fs.open(path, "r");
     String fileContent;
@@ -133,9 +119,13 @@ void writeFile(fs::FS &fs, const char * path, const char * message){
 }
 void fileInit() {
     ssid = readFile(LittleFS, "/wifi_data/ssid.txt");
+    Serial.println(ssid);
     pass = readFile(LittleFS, "/wifi_data/password.txt");
+    Serial.println(pass);
     ip = readFile(LittleFS, "/wifi_data/ip.txt");
+    Serial.println(ip);
     gateway = readFile(LittleFS, "/wifi_data/gateway.txt");
+    Serial.println(gateway);    
     uname = readFile(LittleFS, "/login_data/username.txt");
     password = readFile(LittleFS, "/login_data/password.txt");
 }
@@ -239,8 +229,7 @@ void get_state(AsyncWebServerRequest *request) {
     }
     if (isAutho) {
         String payload;
-        payload += String(digitalRead(LED));
-        payload += String(digitalRead(FAN));
+        payload += String(digitalRead(LAMP));
         payload += String(digitalRead(LOCK));
         request->send(200, "text/plain", payload);
     } else {
@@ -267,33 +256,26 @@ void toggle(AsyncWebServerRequest *request) {
             }
         }
     }
-    
     if (!isAutho) {
         request->send(200, "text/plain", "!");
         return;
     }
-    if (dev != "led" && dev != "fan" && dev != "lock") {
+    if (dev != "lamp" && dev != "lock") {
         request->send(200, "text/plain", "!");
         return;
     }
-    if (!isNumeric(state)) {
+    if (state != "0" && state != "1") {
         request->send(200, "text/plain", "!");
         return;
     }
     String wsPayload;
-    if (dev == "led") {
-        digitalWrite(LED, state.toInt());
-        wsPayload = String("TOGGLE led ") + String(digitalRead(LED));
+    if (dev == "lamp") {
+        digitalWrite(LAMP, state.toInt());
+        wsPayload = String("TOGGLE lamp ") + String(digitalRead(LAMP));
         ws.textAll(wsPayload);
         request->send(200, "text/plain", "@");
     }
-    else if (dev == "fan") {
-        digitalWrite(FAN, state.toInt());
-        wsPayload = String("TOGGLE fan ") + String(digitalRead(FAN));
-        ws.textAll(wsPayload);
-        request->send(200, "text/plain", "@");
-    }
-    else if (dev == "lock") {
+    if (dev == "lock") {
         digitalWrite(LOCK, state.toInt());
         wsPayload = String("TOGGLE lock ") + String(digitalRead(LOCK));
         ws.textAll(wsPayload);
@@ -374,13 +356,15 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
 
     for (uint8_t i=0;i < MAX_CLIENT; i++) {
       if (strcmp((char*)data, client_token[i].c_str()) == 0) {
+        Serial.print("Reset timeout ");
+        Serial.println(client_token[i]);
         client_timeout[i] = 0;
         return;
       }
     }
-    
   }
 }
+
 void onEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type, void *arg, uint8_t *data, size_t len) {
     switch (type) {
       case WS_EVT_CONNECT:
@@ -399,8 +383,7 @@ void onEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType 
 
 void setup() {
     Serial.begin(115200);
-    pinMode(LED, OUTPUT);
-    pinMode(FAN, OUTPUT);
+    pinMode(LAMP, OUTPUT);
     pinMode(LOCK, OUTPUT);
     pinMode(DHTPIN, INPUT);
     pinMode(WIFI_PIN, OUTPUT);
@@ -423,6 +406,7 @@ void setup() {
         client_init();
         old_temp = dht.readTemperature();
         old_hum = dht.readHumidity();
+        old_light = analogRead(A0);
     } else {
         digitalWrite(WIFI_PIN, LOW);
         WiFi.softAP("ESP8266-WIFI-MANAGER");
@@ -439,20 +423,23 @@ void loop() {
 
     tem = dht.readTemperature();
     hum = dht.readHumidity();
+    light = analogRead(A0);
 
     unsigned long currentMillis = millis();
     if (currentMillis - previousMillis1 >= interval1) {
         previousMillis1 = currentMillis;
         update_client();
     }
-    if (currentMillis - previousMillis2 >= interval2) {
+    if (currentMillis - previousMillis2 >= interval2) { // Khối này 3s chạy một lần
         previousMillis2 = currentMillis;
         if (!isnan(tem) && !isnan(hum)) {
-            if (tem != old_temp || hum != old_hum) { 
-                String payload = String("SENSOR ") + String(tem) + ' ' + String(hum);
+            if (tem != old_temp || hum != old_hum || light != old_light) { 
+                String payload = String("SENSOR ") + String(tem) + ' ' + String(hum) + ' ' + String(light);
+                Serial.println(payload);
                 ws.textAll(payload);
                 old_temp = tem;
                 old_hum = hum;
+                old_light = light;
             }
         }
     }
@@ -462,3 +449,4 @@ void loop() {
     }
     delay(100);
 }
+

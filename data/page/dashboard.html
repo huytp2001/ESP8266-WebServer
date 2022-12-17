@@ -128,9 +128,6 @@
             <div class="button_container">
                 <button class="field"><b>Humidity: <span id="hum"></span>%</b></button>
             </div>
-            <div class="button_container">
-                <button class="field"><b>Light: <span id="light"></span></b></button>
-            </div>
         </div>
     </div>
 
@@ -210,7 +207,7 @@
         }
     })
 
-    let led_btn, fan_btn, lock_btn;
+    let lamp_btn, lock_btn;
 
     post_data("/state", {token:`${token}`}).then((res)=>{
         if (res == "!") {
@@ -218,9 +215,8 @@
             window.location.href = "/";
         } else {
             let button_state = res.split("");
-            led_btn = new Button("LED", 'led', (button_state[0] == '1' ? true : false));
-            fan_btn = new Button("FAN", 'fan', (button_state[1] == '1' ? true : false));
-            lock_btn = new Button("LOCK", 'lock', (button_state[2] == '1' ? true : false));
+            lamp_btn = new Button("LAMP", 'lamp', (button_state[0] == '1' ? true : false));
+            lock_btn = new Button("LOCK", 'lock', (button_state[1] == '1' ? true : false));
         }
     })
 
@@ -231,6 +227,7 @@
     ws.onclose = ()=>{
     };
     ws.onmessage = ()=>{
+        console.log(event.data);
         let arrayData = (event.data).split(" ");
         if (arrayData[0] == "SENSOR") {
             let tem = document.getElementById("temp");
@@ -239,16 +236,13 @@
             hum.innerText = arrayData[2];
         }
         if (arrayData[0] == "TOGGLE") {
-        if (arrayData[1] == "led") {
-            led_btn.toggle();
+            if (arrayData[1] == "lamp") {
+                lamp_btn.toggle();
+            }
+            if (arrayData[1] == "lock") {
+                lock_btn.toggle();
+            }
         }
-        if (arrayData[1] == "fan") {
-            fan_btn.toggle();
-        }
-        if (arrayData[1] == "lock") {
-            lock_btn.toggle();
-        }
-    }
     };
 
     // Heartbeating signal
