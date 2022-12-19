@@ -128,6 +128,9 @@
             <div class="button_container">
                 <button class="field"><b>Humidity: <span id="hum"></span>%</b></button>
             </div>
+            <div class="button_container">
+                <button class="field"><b>Light: <span id="light"></span></b></button>
+            </div>
         </div>
     </div>
 
@@ -232,8 +235,14 @@
         if (arrayData[0] == "SENSOR") {
             let tem = document.getElementById("temp");
             let hum = document.getElementById("hum");
+            let light = document.getElementById("light");
             tem.innerText = arrayData[1];
             hum.innerText = arrayData[2];
+            if (arrayData[3] > 950) {
+                light.innerText = "Bright";
+            } else {
+                light.innerText = "Dim";
+            }
         }
         if (arrayData[0] == "TOGGLE") {
             if (arrayData[1] == "lamp") {
