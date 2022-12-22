@@ -87,7 +87,7 @@
             background-color: var(--hover_off);
             cursor:pointer;
         }
-        #side_btn{
+        #setting{
             font-size: 24px;
             position: fixed;
             top: -12px;
@@ -95,14 +95,25 @@
             padding: 20px;
             margin: 18px;
         }
-        #side_btn:hover {
+        #mic {
+            font-size: 24px;
+            position: fixed;
+            top: -12px;
+            left: -8px;
+            padding: 20px;
+            margin: 18px;
+        }
+        #setting:hover {
+            cursor: pointer;
+        }
+        #mic:hover {
             cursor: pointer;
         }
         @media only screen and (hover: none) and (pointer: coarse){
             h1 {
                 font-size: 26px;
             }
-            #side_btn{
+            #setting {
                 font-size: 22px;
                 position: fixed;
                 top: -18px;
@@ -117,7 +128,8 @@
     
     <header>
         <h1 id="title"><a>ESP8266 Web Server</a></h1>
-        <span id="side_btn"><i id="setting" style="font-size: 24px;" class="fa fa-cog" aria-hidden="true"></i></span>
+        <span><i id="mic" class="fa fa-microphone" aria-hidden="true"></i></span>
+        <span><i id="setting" class="fa fa-cog" aria-hidden="true"></i></span>
     </header>
 
     <div id="content">
@@ -170,7 +182,13 @@
                 this.state = true;
             }
         }
-
+        get_state_num() {
+            if (this.state) {
+                return '0';
+            } else {
+                return '1';
+            }
+        }
         render() {
             let btn_div = document.createElement('div');
             btn_div.className = "button_container";
@@ -239,9 +257,9 @@
             tem.innerText = arrayData[1];
             hum.innerText = arrayData[2];
             if (arrayData[3] > 950) {
-                light.innerText = "Bright";
-            } else {
                 light.innerText = "Dim";
+            } else {
+                light.innerText = "Bright";
             }
         }
         if (arrayData[0] == "TOGGLE") {
@@ -259,6 +277,47 @@
         let token = sessionStorage.getItem("token");
         ws.send(token);
     }, 10000);
+
+    let speech = false;
+    window.SpeechRecognition = window.webkitSpeechRecognition;
+    const recognition = new SpeechRecognition();
+
+    let lamp_words = ["light", "like", "lamp", "lamb", "la", "lie"];
+    let lock_words = ["lock", "look", "block"];
+
+    document.getElementById("mic").addEventListener("click", ()=>{        
+            recognition.interimResults = true;
+            recognition.addEventListener('result', e=>{
+                const transcript = Array.from(e.results)
+                .map(result => result[0])
+                .map(result => result.transcript)
+                if (transcript[0] != "" && speech == true) {
+                    console.log(transcript[0]);
+                    recognition.stop();
+                    speech = false;
+                    let token = sessionStorage.getItem("token");
+                    if (lamp_words.includes(transcript[0])) {
+                        post_data("/toggle", {dev:`lamp`,state:`${lamp_btn.get_state_num()}`,token:`${token}`}).then((res)=>{
+                            if (res == "!") {
+                                alert("Unauthorized token");
+                                window.location.href = "/";
+                            }
+                        })
+                    }
+                    if (lock_words.includes(transcript[0])) {
+                        post_data("/toggle", {dev:`lock`,state:`${lock_btn.get_state_num()}`,token:`${token}`}).then((res)=>{
+                            if (res == "!") {
+                                alert("Unauthorized token");
+                                window.location.href = "/";
+                            }
+                        })
+                    }
+                    return;
+                }
+            })
+            recognition.start();
+            speech = true;
+    });
 
     // Setting route binding
     document.getElementById("setting").addEventListener("click", ()=>{

@@ -4,6 +4,7 @@
 
 #define MAX_CLIENT 16
 #define TOKEN_LENGTH 16
+#define LED 16
 #define LAMP 5
 #define LOCK 4
 #define DHTPIN 0
@@ -17,7 +18,7 @@ int client_timeout[MAX_CLIENT];
 unsigned long previousMillis1 = 0;
 unsigned long previousMillis2 = 0;
 const unsigned long interval1 = 5000;
-const unsigned long interval2 = 3000;
+const unsigned long interval2 = 1000;
 float hum, tem, old_temp, old_hum;
 int old_light, light;
 String ssid, pass, ip, gateway, uname, password;
@@ -271,6 +272,7 @@ void toggle(AsyncWebServerRequest *request) {
     String wsPayload;
     if (dev == "lamp") {
         digitalWrite(LAMP, state.toInt());
+        digitalWrite(LED, state.toInt());
         wsPayload = String("TOGGLE lamp ") + String(digitalRead(LAMP));
         ws.textAll(wsPayload);
         request->send(200, "text/plain", "@");
@@ -383,6 +385,7 @@ void onEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType 
 
 void setup() {
     Serial.begin(115200);
+    pinMode(LED, OUTPUT);
     pinMode(LAMP, OUTPUT);
     pinMode(LOCK, OUTPUT);
     pinMode(DHTPIN, INPUT);
@@ -430,7 +433,8 @@ void loop() {
         previousMillis1 = currentMillis;
         update_client();
     }
-    if (currentMillis - previousMillis2 >= interval2) { // Khối này 3s chạy một lần
+    
+    if (currentMillis - previousMillis2 >= interval2) { // Khối này 1s chạy một lần
         previousMillis2 = currentMillis;
         if (!isnan(tem) && !isnan(hum)) {
             if (tem != old_temp || hum != old_hum || light != old_light) { 
