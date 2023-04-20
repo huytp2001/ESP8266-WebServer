@@ -81,27 +81,19 @@
     <h1 id="title">ESP8266 Wi-Fi Manager</h1>
   </header>
   
-  <div id="content">
+<div id="content">
     <div class="form_container" id="wifi_form">
-            <div class="field_container">
-                <label for="ssid"><b>SSID</b></label>
-                <input class="field" type="text" id="ssid" name="ssid" placeholder="Enter SSID" required>
-            </div>
-            <div class="field_container">
-                <label for="pass"><b>Password</b></label>
-                <input class="field" type="password" id="pass" name="pass" placeholder="Enter Password" required>
-            </div>
-            <div class="field_container">
-                <label for="ip"><b>IP Address</b></label>
-                <input class="field" type="text" id="ip" name="ip" placeholder="Enter IP Address" required>
-            </div>
-            <div class="field_container">
-                <label for="gateway"><b>Gateway Address</b></label>
-                <input class="field" type="text" id="gateway" name="gateway" placeholder="Enter Gateway Address" required>
-            </div>
-            <div class="button_container">
-                <button class="field" id="submit_btn"><b>Submit</b></button>
-            </div>
+        <div class="field_container">
+            <label for="ssid"><b>SSID</b></label>
+            <input class="field" type="text" id="ssid" name="ssid" placeholder="Enter SSID" required>
+        </div>
+        <div class="field_container">
+            <label for="pass"><b>Password</b></label>
+            <input class="field" type="password" id="pass" name="pass" placeholder="Enter Password" required>
+        </div>
+        <div class="button_container">
+            <button class="field" id="submit_btn"><b>Submit</b></button>
+        </div>
     </div>
 </div>
     <script>
@@ -121,13 +113,11 @@
         document.getElementById("submit_btn").addEventListener("click", ()=>{
             const ssid = document.getElementById("ssid").value;
             const pass = document.getElementById("pass").value;
-            const ip = document.getElementById("ip").value;
-            const gateway = document.getElementById("gateway").value;
-            if (ssid == "" || pass == "" || ip == "" || gateway == "") {
+            if (ssid == "" || pass == "") {
                 alert("You must fill all your input");
                 return;
             }
-            post_data("/", {ssid:`${ssid}`, pass:`${pass}`, ip:`${ip}`,gateway:`${gateway}`}).then((res)=>{
+            post_data("/", {ssid:`${ssid}`, pass:`${pass}`}).then((res)=>{
                 alert(res);
             }) 
         })

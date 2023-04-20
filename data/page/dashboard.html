@@ -282,8 +282,8 @@
     window.SpeechRecognition = window.webkitSpeechRecognition;
     const recognition = new SpeechRecognition();
 
-    let lamp_words = ["light", "like", "lamp", "lamb", "la", "lie"];
-    let lock_words = ["lock", "look", "block"];
+    const lamp_words = ["light", "like", "lamp", "lamb", "la", "lie"];
+    const lock_words = ["lock", "look", "block"];
 
     document.getElementById("mic").addEventListener("click", ()=>{        
             recognition.interimResults = true;

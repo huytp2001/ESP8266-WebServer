@@ -1,10 +1,12 @@
 #include <Arduino.h>
 #include <ESPAsyncWebServer.h>
 #include <DHT.h>
+#include <LittleFS.h>
+#include <ESP8266HTTPClient.h>
+#include <WiFiClient.h>
 
 #define MAX_CLIENT 16
 #define TOKEN_LENGTH 16
-#define LED 16
 #define LAMP 5
 #define LOCK 4
 #define DHTPIN 0
@@ -21,27 +23,19 @@ const unsigned long interval1 = 5000;
 const unsigned long interval2 = 1000;
 float hum, tem, old_temp, old_hum;
 int old_light, light;
-String ssid, pass, ip, gateway, uname, password;
-IPAddress localIP, localGateway, subnet(255, 255, 255, 0);
+String ssid, pass, uname, password, router_pw;
 bool restart = false;
 
 bool initWifi() {
     Serial.println("Try to connect to wifi...");
-    if(ssid=="" || pass=="" || ip =="" || gateway==""){
-        Serial.println("Cannot found wifi data in flash memory");
+    if(ssid=="" || pass==""){
+        Serial.println("Cannot find wifi data in flash memory");
         Serial.println("Start wifi at AP mode");
         return false;
     }
     WiFi.mode(WIFI_STA);
     WiFi.setAutoReconnect(true);
-    localIP.fromString(ip.c_str());
-    localGateway.fromString(gateway.c_str());
-
-    if (!WiFi.config(localIP, localGateway, subnet)){
-        Serial.println("Failed to config wifi");
-        Serial.println("Start wifi at AP mode");
-        return false;
-    }
+    WiFi.persistent(true);
 
     WiFi.begin(ssid.c_str(), pass.c_str());
     int count = 0;
@@ -60,6 +54,30 @@ bool initWifi() {
     Serial.println(WiFi.localIP());
     return true;
 }
+
+void set_local_ip() {
+    WiFiClient client;
+    HTTPClient http;
+    String serverName = "http://dqhuydev.pythonanywhere.com/set_ip?ip=";
+    String serverPath = serverName + WiFi.localIP().toString();
+    serverPath = serverPath + "&pw=" + router_pw.c_str();
+    Serial.println(serverPath);
+    http.begin(client, serverPath.c_str());
+    int httpResponseCode = http.GET();
+    
+    if (httpResponseCode>0) {
+        Serial.print("HTTP Response code: ");
+        Serial.println(httpResponseCode);
+        String payload = http.getString();
+        Serial.println(payload);
+    }
+    else {
+        Serial.print("Error code: ");
+        Serial.println(httpResponseCode);
+    }
+    http.end();    
+}
+
 String create_token(int len) {
    String res;
    char sample[60] = {'a','b','c','d','e','f','g','h','i','k','l','m','n','o','p','q','w','r','t','y','u','j','z','x','v',
@@ -96,7 +114,7 @@ bool check_token(String token) {
 void update_client() {
   for (int i = 0; i < MAX_CLIENT; i++) {
     if (client_timeout[i] >= 6) {
-      Serial.print("Remove client ");
+      Serial.print("Remove client");
       Serial.println(client_token[i]);
       client_token[i] = "/";
       client_timeout[i] = -1;
@@ -123,12 +141,12 @@ void fileInit() {
     Serial.println(ssid);
     pass = readFile(LittleFS, "/wifi_data/password.txt");
     Serial.println(pass);
-    ip = readFile(LittleFS, "/wifi_data/ip.txt");
-    Serial.println(ip);
-    gateway = readFile(LittleFS, "/wifi_data/gateway.txt");
-    Serial.println(gateway);    
     uname = readFile(LittleFS, "/login_data/username.txt");
+    Serial.println(uname);
     password = readFile(LittleFS, "/login_data/password.txt");
+    Serial.println(password);
+    router_pw = readFile(LittleFS, "/secure/router_pw.txt");
+    Serial.println(router_pw);
 }
 
 void login_page(AsyncWebServerRequest *request) {
@@ -156,18 +174,10 @@ void wifimanager_post(AsyncWebServerRequest *request) {
         pass = p->value().c_str();
         writeFile(LittleFS, "/wifi_data/password.txt", pass.c_str());
       }
-      if (p->name() == "ip") {
-        ip = p->value().c_str();
-        writeFile(LittleFS, "/wifi_data/ip.txt", ip.c_str());
-      }
-      if (p->name() == "gateway") {
-        gateway = p->value().c_str();
-        writeFile(LittleFS, "/wifi_data/gateway.txt", gateway.c_str());
-      }
     }
   }
   restart = true;
-  request->send(200, "text/plain", "Done. ESP will restart, connect to your router and go to IP address: " + ip);
+  request->send(200, "text/plain", "Done. ESP will restart in few seconds");
 }
 void login(AsyncWebServerRequest *request) {
     bool isUname = false;
@@ -272,7 +282,6 @@ void toggle(AsyncWebServerRequest *request) {
     String wsPayload;
     if (dev == "lamp") {
         digitalWrite(LAMP, state.toInt());
-        digitalWrite(LED, state.toInt());
         wsPayload = String("TOGGLE lamp ") + String(digitalRead(LAMP));
         ws.textAll(wsPayload);
         request->send(200, "text/plain", "@");
@@ -385,7 +394,6 @@ void onEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType 
 
 void setup() {
     Serial.begin(115200);
-    pinMode(LED, OUTPUT);
     pinMode(LAMP, OUTPUT);
     pinMode(LOCK, OUTPUT);
     pinMode(DHTPIN, INPUT);
@@ -394,6 +402,7 @@ void setup() {
     fileInit();
     dht.begin();
     if (initWifi()) {
+        set_local_ip();
         digitalWrite(WIFI_PIN, HIGH);
         server.on("/", HTTP_GET, login_page);
         server.on("/dashboard", HTTP_GET, dashboard_page);
@@ -453,4 +462,3 @@ void loop() {
     }
     delay(100);
 }
-
